@@ -1,11 +1,10 @@
+#pragma once
 #include <string>
 
-#pragma once
-
-enum class TokenType {
-    // 单字符：(，)，{，},，.，-，+，;，/，*
+enum class ETokenType {
+    // 单字符：(，)，{，},，.，-，+，;，/，*，:，@
     LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,
-    COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR,
+    COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR, COLON, AT,
 
     // 双字符：!，!=，=，==，>，>=，<,<=
     BANG, BANG_EQUAL,
@@ -16,23 +15,28 @@ enum class TokenType {
     // 字面量：标识符（变量名，函数名），字符串字面量，数字字面量
     IDENTIFIER, STRING, NUMBER,
 
-    // 关键字：and，class，else，false，fun，for，if，nil，or，print，return，super，this，true，var，while, extends, interface
+    // 关键字
     AND, CLASS, ELSE, FALSE, FUNCTION, FOR, IF, NIL, OR,
-    TRACE, RETURN, SUPER, THIS, TRUE, VAR, WHILE, EXTENDS,
-    INTERFACE,
+    RETURN, SUPER, THIS, TRUE, VAR, WHILE, EXTENDS,
+    INTERFACE, TRACE,
+    NEW, PUBLIC, PRIVATE, PROTECTED, OVERRIDE, FINAL,
+    INLINE, MACRO, STATIC,
 
-    // 文件结束EOF
+    // 文件结束EOF，多个F是为了避免与关键字冲突
     EOFF
 };
 
 class Token {
 public:
-    TokenType type;
+    ETokenType type;
+    // 源码中原始字符串
     std::string lexeme;
-    std::string literal;  // 用 string 存字面量值，数字转字符串
+    // 解析后实际的值
+    std::string literal;
+    // 行号
     int line;
 
-    Token(TokenType type, std::string lexeme, std::string literal, int line)
+    Token(ETokenType type, std::string lexeme, std::string literal, int line)
         : type(type), lexeme(lexeme), literal(literal), line(line) {}
 
     std::string toString() {

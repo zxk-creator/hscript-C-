@@ -4,7 +4,8 @@
 #include <string>
 #include <memory>
 #include "../token/Token.h"
-#include "../type/Dynamic.h"
+
+class Dynamic;
 
 // 存储变量用的类
 class Environment {

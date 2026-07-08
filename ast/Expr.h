@@ -10,12 +10,22 @@
 
 class Variable;
 class Assign;
+class Call;
 class Expr;
 class Binary;
 class Grouping;
 class Literal;
 class Unary;
 class Logical;
+class Get;
+class Set;
+class This;
+class Super;
+class NewExpr;
+
+class FunctionStmt;
+class ReturnStmt;
+class ClassStmt;
 
 class ExprVisitor {
 public:
@@ -26,6 +36,12 @@ public:
     virtual Dynamic visitVariableExpr(const Variable& expr) = 0;
     virtual Dynamic visitAssignExpr(const Assign& expr) = 0;
     virtual Dynamic visitLogicalExpr(const Logical& expr) = 0;
+    virtual Dynamic visitCallExpr(const Call& expr) = 0;
+    virtual Dynamic visitGetExpr(const Get& expr) = 0;
+    virtual Dynamic visitSetExpr(const Set& expr) = 0;
+    virtual Dynamic visitThisExpr(const This& expr) = 0;
+    virtual Dynamic visitSuperExpr(const Super& expr) = 0;
+    virtual Dynamic visitNewExpr(const NewExpr& expr) = 0;
     virtual ~ExprVisitor() = default;
 };
 
@@ -83,6 +99,88 @@ public:
 
 
 
+// 函数调用表达式: callee(args)
+class Call : public Expr {
+public:
+    std::unique_ptr<Expr> callee;
+    Token paren;
+    std::vector<std::unique_ptr<Expr>> arguments;
+
+    Call(std::unique_ptr<Expr> callee, Token paren, std::vector<std::unique_ptr<Expr>> arguments)
+        : callee(std::move(callee)), paren(paren), arguments(std::move(arguments)) {}
+
+    Dynamic accept(ExprVisitor& visitor) const override {
+        return visitor.visitCallExpr(*this);
+    }
+};
+
+// 属性访问: object.name
+class Get : public Expr {
+public:
+    std::unique_ptr<Expr> object;
+    Token name;
+
+    Get(std::unique_ptr<Expr> object, Token name)
+        : object(std::move(object)), name(name) {}
+
+    Dynamic accept(ExprVisitor& visitor) const override {
+        return visitor.visitGetExpr(*this);
+    }
+};
+
+// 属性赋值: object.name = value
+class Set : public Expr {
+public:
+    std::unique_ptr<Expr> object;
+    Token name;
+    std::unique_ptr<Expr> value;
+
+    Set(std::unique_ptr<Expr> object, Token name, std::unique_ptr<Expr> value)
+        : object(std::move(object)), name(name), value(std::move(value)) {}
+
+    Dynamic accept(ExprVisitor& visitor) const override {
+        return visitor.visitSetExpr(*this);
+    }
+};
+
+// this关键字
+class This : public Expr {
+public:
+    Token keyword;
+
+    explicit This(Token keyword) : keyword(keyword) {}
+
+    Dynamic accept(ExprVisitor& visitor) const override {
+        return visitor.visitThisExpr(*this);
+    }
+};
+
+// super关键字（仅用于 super.method()）
+class Super : public Expr {
+public:
+    Token keyword;
+
+    explicit Super(Token keyword) : keyword(keyword) {}
+
+    Dynamic accept(ExprVisitor& visitor) const override {
+        return visitor.visitSuperExpr(*this);
+    }
+};
+
+// new 表达式: new ClassName(args)
+class NewExpr : public Expr {
+public:
+    Token name;  // 类名
+    std::vector<std::unique_ptr<Expr>> arguments;
+
+    NewExpr(Token name, std::vector<std::unique_ptr<Expr>> arguments)
+        : name(name), arguments(std::move(arguments)) {}
+
+    Dynamic accept(ExprVisitor& visitor) const override {
+        return visitor.visitNewExpr(*this);
+    }
+};
+
 // ==================================================关键字AST===============================================================
 class Stmt;
 class ExpressionStmt;
@@ -96,8 +194,11 @@ public:
     virtual Dynamic visitExpressionStmt(const ExpressionStmt& stmt) = 0;
     virtual Dynamic visitVarStmt(const VarStmt& stmt) = 0;
     virtual Dynamic visitBlockStmt(const BlockStmt& stmt) = 0;
-    virtual Dynamic visitIfStmt(const IfStmt& stmt) = 0;     // 新增
+    virtual Dynamic visitIfStmt(const IfStmt& stmt) = 0;
     virtual Dynamic visitWhileStmt(const WhileStmt& stmt) = 0;
+    virtual Dynamic visitFunctionStmt(const FunctionStmt& stmt) = 0;
+    virtual Dynamic visitReturnStmt(const ReturnStmt& stmt) = 0;
+    virtual Dynamic visitClassStmt(const ClassStmt& stmt) = 0;
     virtual ~StmtVisitor() = default;
 };
 
@@ -233,5 +334,50 @@ public:
 
     Dynamic accept(StmtVisitor& visitor) const override {
         return visitor.visitWhileStmt(*this);
+    }
+};
+
+// 函数声明: function name(params) { body }
+class FunctionStmt : public Stmt {
+public:
+    Token name;
+    std::vector<Token> params;
+    std::vector<std::unique_ptr<Stmt>> body;
+
+    FunctionStmt(const Token& name, std::vector<Token> params, std::vector<std::unique_ptr<Stmt>> body)
+        : name(name), params(std::move(params)), body(std::move(body)) {}
+
+    Dynamic accept(StmtVisitor& visitor) const override {
+        return visitor.visitFunctionStmt(*this);
+    }
+};
+
+// return语句: return expression?;
+class ReturnStmt : public Stmt {
+public:
+    Token keyword;
+    std::unique_ptr<Expr> value;
+
+    ReturnStmt(const Token& keyword, std::unique_ptr<Expr> value)
+        : keyword(keyword), value(std::move(value)) {}
+
+    Dynamic accept(StmtVisitor& visitor) const override {
+        return visitor.visitReturnStmt(*this);
+    }
+};
+
+// 类声明: class name extends superclass { ... }
+class ClassStmt : public Stmt {
+public:
+    Token name;
+    std::unique_ptr<Expr> superclass;  // Variable 或 nullptr
+    std::vector<std::unique_ptr<FunctionStmt>> methods;
+
+    ClassStmt(Token name, std::unique_ptr<Expr> superclass,
+              std::vector<std::unique_ptr<FunctionStmt>> methods)
+        : name(name), superclass(std::move(superclass)), methods(std::move(methods)) {}
+
+    Dynamic accept(StmtVisitor& visitor) const override {
+        return visitor.visitClassStmt(*this);
     }
 };

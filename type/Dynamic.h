@@ -10,8 +10,8 @@
 #include <vector>
 #include <variant>
 #include <functional>
-#include "BaseClass.h"
 #include "../util/ExceptionUtil.h"
+#include "BaseClass.h"
 
 using String = std::string;
 
@@ -19,7 +19,7 @@ class Dynamic;
 
 using NullType = std::monostate;
 using ArrayType = std::vector<Dynamic>;
-using ObjectType = std::shared_ptr<Object>;
+using ObjectType = std::shared_ptr<HObject>;
 // 必须把参数全都转换成
 using FunctionType = std::function<Dynamic(const std::vector<Dynamic>&)>;
 
@@ -316,6 +316,7 @@ public:
             },
             [](auto) -> Dynamic {
                 Exception::throwRuntimeError("该数值不能用于取负数！");
+                return Dynamic();
             }
         }, _value);
     }

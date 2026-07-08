@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.2)
+cmake_minimum_required(VERSION 3.20)
 project(HaxeParser)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -8,7 +8,7 @@ add_executable(HaxeParser main.cpp
         token/Scanner.h
         ast/Expr.h
         type/Dynamic.h
-        type/BaseClass.h
+        type/HClass.h
         util/ExceptionUtil.h
         ast/Parser.h
         ast/Interpreter.h

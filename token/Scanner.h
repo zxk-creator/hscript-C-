@@ -6,17 +6,17 @@
 #include <unordered_map>
 #include "Token.h"
 
-// 用于将文本的脚本转化为一种更高级的非文本形式
+// 用于将文本的脚本转化为一种更高级的非纯文本形式
 class Scanner {
-private:
     std::string source;
     std::vector<Token> tokens;
     int start = 0;      // 当前词素开始位置
     int current = 0;    // 当前扫描位置
     int line = 1;       // 当前行号
+    // 注：start和current的关系是，标注一个完整的词素，比如数字、字符串、标识符，以及运算符和括号。只需要current - start就能得到词素长度
 
     // 关键字映射表
-    std::unordered_map<std::string, TokenType> keywords;
+    std::unordered_map<std::string, ETokenType> keywords;
     // 判断是否已扫描到源代码末尾
     bool isAtEnd() { return current >= source.length(); }
     // 消费当前字符并返回，同时向前移动扫描位置
@@ -31,19 +31,19 @@ private:
         if (current + 1 >= source.length()) return '\0';
         return source[current + 1];
     }
-    // 判断当前字符是否匹配期望字符，匹配则消费并返回 true
+    // 判断当前字符是否匹配期望字符，匹配则消费并返回true
     bool match(char expected) {
         if (isAtEnd()) return false;
         if (source[current] != expected) return false;
         current++;
         return true;
     }
-    // 添加一个无字面量值的 Token（用于关键字和运算符）
-    void addToken(TokenType type) {
+    // 添加一个无字面量值的Token
+    void addToken(ETokenType type) {
         addToken(type, "");
     }
-    // 添加一个有字面量值的 Token（用于字符串和数字）
-    void addToken(TokenType type, std::string literal) {
+    // 添加一个有字面量值的Token用于字符串和数字
+    void addToken(ETokenType type, std::string literal) {
         std::string text = source.substr(start, current - start);
         tokens.push_back(Token(type, text, literal, line));
     }
@@ -66,29 +66,30 @@ private:
 
         switch (c) {
             // 单字符
-            case '(': addToken(TokenType::LEFT_PAREN); break;
-            case ')': addToken(TokenType::RIGHT_PAREN); break;
-            case '{': addToken(TokenType::LEFT_BRACE); break;
-            case '}': addToken(TokenType::RIGHT_BRACE); break;
-            case ',': addToken(TokenType::COMMA); break;
-            case '.': addToken(TokenType::DOT); break;
-            case '-': addToken(TokenType::MINUS); break;
-            case '+': addToken(TokenType::PLUS); break;
-            case ';': addToken(TokenType::SEMICOLON); break;
-            case '*': addToken(TokenType::STAR); break;
+            case '(': addToken(ETokenType::LEFT_PAREN); break;
+            case ')': addToken(ETokenType::RIGHT_PAREN); break;
+            case '{': addToken(ETokenType::LEFT_BRACE); break;
+            case '}': addToken(ETokenType::RIGHT_BRACE); break;
+            case ',': addToken(ETokenType::COMMA); break;
+            case '.': addToken(ETokenType::DOT); break;
+            case '-': addToken(ETokenType::MINUS); break;
+            case '+': addToken(ETokenType::PLUS); break;
+            case ';': addToken(ETokenType::SEMICOLON); break;
+            case '*': addToken(ETokenType::STAR); break;
+            case ':': addToken(ETokenType::COLON); break;
 
-            // 双字符运算符
+            // 双字符运算符（为什么用match，因为switch所用的c已经被消费了）
             case '!':
-                addToken(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG);
+                addToken(match('=') ? ETokenType::BANG_EQUAL : ETokenType::BANG);
                 break;
             case '=':
-                addToken(match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL);
+                addToken(match('=') ? ETokenType::EQUAL_EQUAL : ETokenType::EQUAL);
                 break;
             case '<':
-                addToken(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS);
+                addToken(match('=') ? ETokenType::LESS_EQUAL : ETokenType::LESS);
                 break;
             case '>':
-                addToken(match('=') ? TokenType::GREATER_EQUAL : TokenType::GREATER);
+                addToken(match('=') ? ETokenType::GREATER_EQUAL : ETokenType::GREATER);
                 break;
 
             case '/':
@@ -96,7 +97,7 @@ private:
                     // 注释，读到行尾
                     while (peek() != '\n' && !isAtEnd()) advance();
                 } else {
-                    addToken(TokenType::SLASH);
+                    addToken(ETokenType::SLASH);
                 }
                 break;
 
@@ -113,14 +114,17 @@ private:
                 string();
                 break;
 
+            case '@':
+                addToken(ETokenType::AT);
+                break;
+
             default:
                 if (isDigit(c)) {
                     number();
                 } else if (isAlpha(c)) {
                     identifier();
                 } else {
-                    // 报错
-                    std::cerr << "[行 " << line << "] 错误: 未预期的Token\n";
+                    std::cerr << "[行 " << line << "] 错误: 非法的字符" << c << std::endl;
                 }
                 break;
         }
@@ -134,16 +138,16 @@ private:
         }
 
         if (isAtEnd()) {
-            std::cerr << "[行 " << line << "] 错误: 无法中断的字符串.\n";
+            std::cerr << "[行 " << line << "] 错误: 无法中断的字符串。你是否忘记了另一个\"？\n";
             return;
         }
 
-        // 消费关闭的 "
+        // 消费另一头关闭的 "
         advance();
 
         // 去掉引号
         std::string value = source.substr(start + 1, current - start - 2);
-        addToken(TokenType::STRING, value);
+        addToken(ETokenType::STRING, value);
     }
 
     // 处理数字
@@ -157,7 +161,7 @@ private:
         }
 
         std::string value = source.substr(start, current - start);
-        addToken(TokenType::NUMBER, value);
+        addToken(ETokenType::NUMBER, value);
     }
 
     // 处理标识符和关键字
@@ -167,58 +171,71 @@ private:
         std::string text = source.substr(start, current - start);
 
         auto it = keywords.find(text);
-        TokenType type = (it != keywords.end()) ? it->second : TokenType::IDENTIFIER;
+        ETokenType type = (it != keywords.end()) ? it->second : ETokenType::IDENTIFIER;
         addToken(type);
     }
 
 public:
     Scanner(std::string source) : source(source) {
-        keywords["&&"]       = TokenType::AND;
-        keywords["和"]       = TokenType::AND;
+        keywords["&&"]       = ETokenType::AND;
+        keywords["和"]       = ETokenType::AND;
 
-        keywords["class"]    = TokenType::CLASS;
-        keywords["类"]       = TokenType::CLASS;
+        keywords["class"]    = ETokenType::CLASS;
+        keywords["类"]       = ETokenType::CLASS;
 
-        keywords["else"]     = TokenType::ELSE;
-        keywords["否则"]     = TokenType::ELSE;
+        keywords["else"]     = ETokenType::ELSE;
+        keywords["否则"]     = ETokenType::ELSE;
 
-        keywords["false"]    = TokenType::FALSE;
-        keywords["假"]       = TokenType::FALSE;
+        keywords["false"]    = ETokenType::FALSE;
+        keywords["假"]       = ETokenType::FALSE;
 
-        keywords["for"]      = TokenType::FOR;
-        keywords["循环"]     = TokenType::FOR;
+        keywords["for"]      = ETokenType::FOR;
+        keywords["循环"]     = ETokenType::FOR;
 
-        keywords["function"] = TokenType::FUNCTION;
-        keywords["函数"]     = TokenType::FUNCTION;
+        keywords["function"] = ETokenType::FUNCTION;
+        keywords["函数"]     = ETokenType::FUNCTION;
 
-        keywords["if"]       = TokenType::IF;
-        keywords["如果"]     = TokenType::IF;
+        keywords["if"]       = ETokenType::IF;
+        keywords["如果"]     = ETokenType::IF;
 
-        keywords["null"]     = TokenType::NIL;
-        keywords["空"]       = TokenType::NIL;
+        keywords["null"]     = ETokenType::NIL;
+        keywords["空"]       = ETokenType::NIL;
 
-        keywords["||"]       = TokenType::OR;
-        keywords["或"]       = TokenType::OR;
+        keywords["||"]       = ETokenType::OR;
+        keywords["或"]       = ETokenType::OR;
 
-        keywords["打印"]     = TokenType::TRACE;
+        keywords["return"]   = ETokenType::RETURN;
+        keywords["返回"]     = ETokenType::RETURN;
 
-        keywords["return"]   = TokenType::RETURN;
-        keywords["返回"]     = TokenType::RETURN;
+        keywords["super"]    = ETokenType::SUPER;
+        keywords["父类"]     = ETokenType::SUPER;
 
-        keywords["super"]    = TokenType::SUPER;
-        keywords["父类"]     = TokenType::SUPER;
+        keywords["this"]     = ETokenType::THIS;
+        keywords["自己"]     = ETokenType::THIS;
 
-        keywords["this"]     = TokenType::THIS;
-        keywords["自己"]     = TokenType::THIS;
+        keywords["true"]     = ETokenType::TRUE;
+        keywords["真"]       = ETokenType::TRUE;
 
-        keywords["true"]     = TokenType::TRUE;
-        keywords["真"]       = TokenType::TRUE;
+        keywords["var"]      = ETokenType::VAR;
+        keywords["变量"]     = ETokenType::VAR;
 
-        keywords["var"]      = TokenType::VAR;
-        keywords["变量"]     = TokenType::VAR;
+        keywords["while"]    = ETokenType::WHILE;
+        keywords["当"]       = ETokenType::WHILE;
 
-        keywords["while"]    = TokenType::WHILE;
-        keywords["当"]       = TokenType::WHILE;
+        keywords["extends"]  = ETokenType::EXTENDS;
+        keywords["继承"]     = ETokenType::EXTENDS;
+
+        keywords["new"]      = ETokenType::NEW;
+
+        keywords["public"]   = ETokenType::PUBLIC;
+        keywords["private"]  = ETokenType::PRIVATE;
+        keywords["protected"] = ETokenType::PROTECTED;
+
+        keywords["override"] = ETokenType::OVERRIDE;
+        keywords["final"]    = ETokenType::FINAL;
+        keywords["inline"]   = ETokenType::INLINE;
+        keywords["macro"]    = ETokenType::MACRO;
+        keywords["static"]   = ETokenType::STATIC;
     }
 
     std::vector<Token> scanTokens() {
@@ -227,7 +244,9 @@ public:
             scanToken();
         }
 
-        tokens.push_back(Token(TokenType::EOFF, "", "", line));
+        // 结束了，加个文件结束标识
+        tokens.push_back(Token(ETokenType::EOFF, "", "", line));
+        // 返回扫描好的token列表
         return tokens;
     }
 };
