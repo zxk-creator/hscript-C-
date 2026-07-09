@@ -7,7 +7,7 @@
 
 class Dynamic;
 
-// 存储变量用的类
+// 存储脚本变量用的类
 class Environment {
     // 存储当前作用域中的所有变量名: 值，如{x: 5, y: "Hello World"}
     std::unordered_map<std::string, Dynamic> values;

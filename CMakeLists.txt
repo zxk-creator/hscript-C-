@@ -12,4 +12,6 @@ add_executable(HaxeParser main.cpp
         util/ExceptionUtil.h
         ast/Parser.h
         ast/Interpreter.h
-        env/Environment.h)
+        env/Environment.h
+        util/reflect/Reflect.h
+        test/TestClass.h)

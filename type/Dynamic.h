@@ -11,7 +11,8 @@
 #include <variant>
 #include <functional>
 #include "../util/ExceptionUtil.h"
-#include "BaseClass.h"
+
+class HObject;
 
 using String = std::string;
 
@@ -20,7 +21,7 @@ class Dynamic;
 using NullType = std::monostate;
 using ArrayType = std::vector<Dynamic>;
 using ObjectType = std::shared_ptr<HObject>;
-// 必须把参数全都转换成
+// C++原生函数
 using FunctionType = std::function<Dynamic(const std::vector<Dynamic>&)>;
 
 using DynamicValue = std::variant<

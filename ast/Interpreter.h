@@ -8,6 +8,7 @@
 #include "../type/Dynamic.h"
 #include "../util/ExceptionUtil.h"
 #include "../type/HClass.h"
+#include "../util/reflect/Reflect.h"
 
 // 用于return语句的控制流异常
 class ReturnException : public std::runtime_error {
@@ -19,7 +20,10 @@ public:
 };
 
 class Interpreter : public ExprVisitor, public StmtVisitor {
+
     std::shared_ptr<Environment> environment = std::make_shared<Environment>();
+    // 可继承的类(由C++定义和暴露)，类型为 {类名: {方法名: 所有方法}}
+    std::unordered_map<std::string, std::unordered_map<std::string,FunctionType>> inheritableNativeClasses;
 
     // 判断值的真假
     bool isTruthy(const Dynamic& value) {
@@ -34,8 +38,7 @@ class Interpreter : public ExprVisitor, public StmtVisitor {
     }
 
     // 在新建的环境中执行语句块
-    void executeBlock(const std::vector<std::unique_ptr<Stmt>>& statements,
-                      std::shared_ptr<Environment> env) {
+    void executeBlock(const std::vector<std::unique_ptr<Stmt>>& statements, std::shared_ptr<Environment> env) {
         auto previous = environment;
         try {
             environment = env;  // 切换到新环境
@@ -61,8 +64,18 @@ public:
     }
 
     // 注册C++函数到全局环境
-    void registerNative(const std::string& name, FunctionType func) {
+    void registerNativeFunc(const std::string& name, FunctionType func) {
         environment->define(name, Dynamic(std::move(func)));
+    }
+
+    /**
+     * 注册新的可继承的C++类到全局
+     * @param clsName C++类名
+     * @param clsMethods 所包含的全部或部分方法
+     */
+    void registerNativeClass(const std::string& clsName, const std::unordered_map<std::string, FunctionType>& clsMethods)
+    {
+        inheritableNativeClasses[clsName] = clsMethods;
     }
 
     // 解释执行整个程序
@@ -182,9 +195,15 @@ public:
                 Dynamic thisVal = environment->get(thisToken);
                 auto instance = std::dynamic_pointer_cast<HInstance>(thisVal.asObject());
                 if (instance) {
-                    const FunctionStmt* method = instance->klass->findMethod(expr.name.lexeme);
-                    if (method) {
-                        return createBoundMethod(instance, method, instance->klass);
+                    // 先尝试执行脚本方法
+                    if (const FunctionStmt* scriptMethod = instance->klass->findMethod(expr.name.lexeme).first) {
+                        return createBoundMethod(instance, scriptMethod, instance->klass);
+                    }
+                    // 再尝试执行C++方法
+                    if (const FunctionType nativeMethod = instance->klass->findMethod(expr.name.lexeme).second)
+                    {
+                        // 如果有效，直接执行
+                       return Dynamic(nativeMethod);
                     }
                 }
             } catch (...) {
@@ -280,15 +299,21 @@ public:
     }
 
     // ===== 类/对象相关 =====
-
-    // 创建绑定方法（捕获实例用于this，捕获类用于super）
+    /**
+     * 创建绑定方法（捕获实例用于this，捕获类用于super）
+     * 所谓的this，实际上就是一个环境，找在这个环境里面的变量
+     * @param instance 方法被调用时，this指向誰？
+     * @param method 要执行什么方法？
+     * @param definingClass 这个方法是从哪个类上找到的？
+     * @return 可执行方法对象
+     */
     Dynamic createBoundMethod(std::shared_ptr<HInstance> instance,
                               const FunctionStmt* method,
                               std::shared_ptr<HClass> definingClass) {
         return Dynamic([instance, method, definingClass, this](const std::vector<Dynamic>& args) mutable -> Dynamic {
             auto env = std::make_shared<Environment>(definingClass->closure);
             env->define("this", Dynamic(instance));
-            // 存储定义类，供super解析
+            // 存储定义类，供super解析（实际上这也是个变量，理论上你可以把他的父类改了，super是脱糖的结果）
             env->define("__class__", Dynamic(definingClass));
 
             for (size_t i = 0; i < method->params.size(); ++i) {
@@ -304,7 +329,7 @@ public:
         });
     }
 
-    // 类声明：创建HaxeClass并绑定到变量名
+    // 类声明：创建HClass并绑定到变量名
     Dynamic visitClassStmt(const ClassStmt& stmt) override {
         // 解析父类
         std::shared_ptr<HClass> superclassObj = nullptr;
@@ -333,7 +358,7 @@ public:
 
     // 属性/方法访问: obj.field 或 obj.method
     Dynamic visitGetExpr(const Get& expr) override {
-        // 处理 super.method() - 必须率先检查，不能先求值super表达式
+        // 处理 super.method()前面的super.必须率先检查，不能先求值super表达式
         if (dynamic_cast<const Super*>(&*expr.object)) {
             Token thisToken(ETokenType::THIS, "this", "", 0);
             Dynamic thisVal = environment->get(thisToken);
@@ -351,15 +376,20 @@ public:
                 throw std::runtime_error("该类没有父类，不能使用super。");
             }
 
-            const FunctionStmt* method = currentClass->superclass->findMethod(expr.name.lexeme);
-            if (!method) {
-                throw std::runtime_error("父类中未找到方法 '" + expr.name.lexeme + "'。");
+            // 先尝试执行脚本父类方法
+            if (const FunctionStmt* method = currentClass->superclass->findMethod(expr.name.lexeme).first) {
+                return createBoundMethod(instance, method, currentClass->superclass);
             }
+            // 如果不行？说明可能是C++父类，再尝试执行C++父类方法
+            if (const FunctionType nativeMethod = currentClass->superclass->findMethod(expr.name.lexeme).second)
+            {
+                return Dynamic(nativeMethod);
+            }
+            throw std::runtime_error("父类中未找到方法 '" + expr.name.lexeme + "'。");
 
-            return createBoundMethod(instance, method, currentClass->superclass);
         }
 
-        // 处理实例属性/方法（常规对象访问时才求值）
+        // 如果不是super，则处理实例属性/方法（常规对象访问时才求值）
         Dynamic object = evaluate(*expr.object);
         if (object.isNull()) {
             throw std::runtime_error("不能访问null对象的属性。");
@@ -370,20 +400,30 @@ public:
             throw std::runtime_error("只有对象实例有属性。");
         }
 
-        // 先查找字段（未定义的字段返回null）
+        // 先查找脚本字段字段（未定义的字段返回null）
         auto fieldIt = instance->fields.find(expr.name.lexeme);
         if (fieldIt != instance->fields.end()) {
             return fieldIt->second;
         }
-
-        // 再查找方法
-        const FunctionStmt* method = instance->klass->findMethod(expr.name.lexeme);
-        if (method) {
-            return createBoundMethod(instance, method, instance->klass);
+        // 脚本字段没有？可能是C++字段
+        auto klassPtr = instance->klass;
+        // 反射调用
+        if (klassPtr){
+            return klassPtr->getField(expr.name.lexeme);
         }
 
-        // 未定义的属性返回null（Haxe风格）
-        return Dynamic();
+        // 跑到这里说明上面的不是字段，那么我们查找方法，先脚本
+        if (const FunctionStmt* method = instance->klass->findMethod(expr.name.lexeme).first) {
+            return createBoundMethod(instance, method, instance->klass);
+        }
+        // 失败了，再C++方法试试？
+        if (const FunctionType nativeMethod = instance->klass->findMethod(expr.name.lexeme).second)
+        {
+            return Dynamic(nativeMethod);
+        }
+
+        // 都没有，直接抛异常
+        throw std::runtime_error("对象中未找到属性 '" + expr.name.lexeme + "'。");
     }
 
     // 属性赋值: obj.field = value
@@ -399,9 +439,23 @@ public:
             throw std::runtime_error("只有对象实例可以设置属性。");
         }
 
+
         Dynamic value = evaluate(*expr.value);
-        instance->fields[expr.name.lexeme] = value;
-        return value;
+        // 先找脚本是否真的有这个字段
+        if (instance->fields.find(expr.name.lexeme) != instance->fields.end())
+        {
+            instance->fields[expr.name.lexeme] = value;
+            return value;
+        }
+        // 再找C++是否有这个字段
+        if (instance->klass && instance->klass->hasField(expr.name.lexeme))
+        {
+            instance->klass->setField(expr.name.lexeme, value);
+            return value;
+        }
+
+        // 都没，异常
+        throw std::runtime_error("对象中未找到属性 '" + expr.name.lexeme + "'。");
     }
 
     // this关键字：从环境中查找
@@ -416,30 +470,49 @@ public:
     }
 
     // new表达式: new ClassName(args)
+    // 这里是关键: 如果我们创建一个脚本类，他继承自C++类怎么办？我这里的解决方案是：创建一个脚本类，再创建一个C++父类。返回的是HClass基类指针。
     Dynamic visitNewExpr(const NewExpr& expr) override {
         // 查找类
         Dynamic classVal = environment->get(expr.name);
         auto klass = std::dynamic_pointer_cast<HClass>(classVal.asObject());
-        if (!klass) {
-            throw std::runtime_error("未找到类 '" + expr.name.lexeme + "'。");
+        // 如果找到父类是一个脚本类
+        if (klass) {
+            // 创建实例
+            auto instance = std::make_shared<HInstance>(klass);
+
+            // 计算参数
+            std::vector<Dynamic> args;
+            for (const auto& arg : expr.arguments) {
+                args.push_back(evaluate(*arg));
+            }
+
+            // 调用构造函数（如果存在）
+            const FunctionStmt* constructor = klass->findMethod("new").first;
+            if (constructor) {
+                auto boundCtor = createBoundMethod(instance, constructor, klass);
+                boundCtor.call(args);
+            }
+
+            return Dynamic(instance);
         }
-
-        // 创建实例
-        auto instance = std::make_shared<HInstance>(klass);
-
-        // 计算参数
-        std::vector<Dynamic> args;
-        for (const auto& arg : expr.arguments) {
-            args.push_back(evaluate(*arg));
+        // 如果没找到，那说不定是C++父类？所以我们取出类名
+        auto it = inheritableNativeClasses.find(expr.name.literal);
+        // 找到！直接实例化
+        if (it != inheritableNativeClasses.end())
+        {
+            std::vector<Dynamic> args;
+            for (const auto& arg : expr.arguments) {
+                args.push_back(evaluate(*arg));
+            }
+            // 如果指针有效，说明创建实例成功！
+            if(auto ptr = Reflect::createInstance(expr.name.literal,args))
+            {
+                // 创建一个空脚本对象包装一下！
+                auto insPtr = std::make_shared<HInstance>(ptr);
+                return Dynamic(insPtr);
+            }
         }
-
-        // 调用构造函数（如果存在）
-        const FunctionStmt* constructor = klass->findMethod("new");
-        if (constructor) {
-            auto boundCtor = createBoundMethod(instance, constructor, klass);
-            boundCtor.call(args);
-        }
-
-        return Dynamic(instance);
+        throw std::runtime_error("未找到类 '" + expr.name.lexeme + "'。");
     }
+
 };

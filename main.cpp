@@ -104,7 +104,7 @@ int main() {
     Interpreter interpreter;
 
     // 注册 trace 函数：打印字符串到控制台
-    interpreter.registerNative("trace", [](const std::vector<Dynamic>& args) -> Dynamic {
+    interpreter.registerNativeFunc("trace", [](const std::vector<Dynamic>& args) -> Dynamic {
         if (!args.empty()) {
             std::cout << args[0].toString() << std::endl;
         } else {

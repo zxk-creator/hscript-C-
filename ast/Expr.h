@@ -337,7 +337,7 @@ public:
     }
 };
 
-// 函数声明: function name(params) { body }
+// 脚本函数
 class FunctionStmt : public Stmt {
 public:
     Token name;
