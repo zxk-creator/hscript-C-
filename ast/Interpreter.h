@@ -433,7 +433,7 @@ public:
         }
         if (!object.isObject()) {
             // 基本类型方法支持，这是可以对数字可以调用toString()的原因！
-            if (expr.name.lexeme == "toString") {
+            if (expr.name.lexeme == "toString" || expr.name.lexeme == "转字符串") {
                 return Dynamic([object](const std::vector<Dynamic>&) -> Dynamic {
                     return Dynamic(object.toString());
                 });
@@ -556,6 +556,12 @@ public:
             const FunctionStmt* constructor = klass->findMethod("new").first;
             if (constructor) {
                 auto boundCtor = createBoundMethod(instance, constructor, klass);
+                boundCtor.call(args);
+            }
+            // 可能是中文的？于是我们也查找中文方法
+            const FunctionStmt* constructorC = klass->findMethod("新的").first;
+            if (constructorC) {
+                auto boundCtor = createBoundMethod(instance, constructorC, klass);
                 boundCtor.call(args);
             }
 

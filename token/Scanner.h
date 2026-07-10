@@ -53,7 +53,8 @@ class Scanner {
     bool isAlpha(char c) {
         return (c >= 'a' && c <= 'z') ||
                (c >= 'A' && c <= 'Z') ||
-               c == '_';
+               c == '_' ||
+               (c & 0x80);  // UTF-8 多字节字符（中文等）
     }
     // 判断字符是否为字母、数字或下划线
     bool isAlphaNumeric(char c) {
