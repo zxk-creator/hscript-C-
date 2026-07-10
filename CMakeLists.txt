@@ -14,4 +14,6 @@ add_executable(HaxeParser main.cpp
         ast/Interpreter.h
         env/Environment.h
         util/reflect/Reflect.h
-        test/TestClass.h)
+        test/TestClass.h
+        lib/ScriptLibs.h
+        lib/ScriptLibs.cpp)

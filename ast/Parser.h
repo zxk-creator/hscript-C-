@@ -290,12 +290,14 @@ class Parser {
             }
             return statement();
         } catch (const std::runtime_error& e) {
+            int errLine = isAtEnd() ? previous().line : peek().line;
+            std::cerr << "[行 " << errLine << "] 语法错误: " << e.what() << std::endl;
             synchronize();
             return nullptr;
         }
     }
 
-    // 类声明: "class" IDENTIFIER ("extends" IDENTIFIER)? "{" method* "}"
+    // 类声明: "class" IDENTIFIER ("extends" IDENTIFIER)? "{" (method|field)* "}"
     std::unique_ptr<Stmt> classDeclaration() {
         Token name = consume(ETokenType::IDENTIFIER, "类名期望。");
 
@@ -308,24 +310,35 @@ class Parser {
 
         consume(ETokenType::LEFT_BRACE, "类体前期望 '{'。");
 
-        // 解析方法
+        // 解析方法和字段声明
         std::vector<std::unique_ptr<FunctionStmt>> methods;
+        std::vector<std::pair<Token, std::unique_ptr<Expr>>> fields;
         while (!check(ETokenType::RIGHT_BRACE) && !isAtEnd()) {
-            // 注解和修饰符
+            // 注解和修饰符（public/protected/private 等）
             consumeAnnotations();
             consumeMethodModifiers();
 
             if (match({ETokenType::FUNCTION})) {
                 methods.push_back(std::unique_ptr<FunctionStmt>(
                     static_cast<FunctionStmt*>(functionDeclaration().release())));
+            } else if (match({ETokenType::VAR})) {
+                // 字段声明：存储字段名和初始值表达式
+                Token fieldName = consume(ETokenType::IDENTIFIER, "字段名期望。");
+                consumeTypeAnnotation();  // 类型注解（忽略）
+                std::unique_ptr<Expr> initializer = nullptr;
+                if (match({ETokenType::EQUAL})) {
+                    initializer = expression();
+                }
+                consume(ETokenType::SEMICOLON, "字段声明后期望 ';'。");
+                fields.push_back({fieldName, std::move(initializer)});
             } else {
-                throw std::runtime_error("类体内只允许方法定义。");
+                throw std::runtime_error("类体内只允许方法或字段定义。");
             }
         }
 
         consume(ETokenType::RIGHT_BRACE, "类体后期望 '}'。");
 
-        return std::make_unique<ClassStmt>(name, std::move(superclass), std::move(methods));
+        return std::make_unique<ClassStmt>(name, std::move(superclass), std::move(methods), std::move(fields));
     }
 
     // 消费注解: @xxx 或 @xxx(...) （被忽略）
@@ -470,6 +483,9 @@ class Parser {
     // ifStmt → "if" "(" expression ")" statement ("else" statement)?
     std::unique_ptr<Stmt> ifStatement() {
         consume(ETokenType::LEFT_PAREN, "if 后期望 '('。");
+        if (check(ETokenType::RIGHT_PAREN)) {
+            throw std::runtime_error("if条件不能为空。");
+        }
         auto condition = expression();
         consume(ETokenType::RIGHT_PAREN, "if 条件后期望 ')'。");
 
@@ -490,6 +506,9 @@ class Parser {
     // whileStmt → "while" "(" expression ")" statement
     std::unique_ptr<Stmt> whileStatement() {
         consume(ETokenType::LEFT_PAREN, "while后期望 '('。");
+        if (check(ETokenType::RIGHT_PAREN)) {
+            throw std::runtime_error("while条件不能为空。");
+        }
         auto condition = expression();
         consume(ETokenType::RIGHT_PAREN, "while条件后期望 ')'。");
 
@@ -529,7 +548,7 @@ class Parser {
         if (!check(ETokenType::RIGHT_PAREN)) {
             increment = expression();
         }
-        consume(ETokenType::RIGHT_PAREN, "for 子句后期望 ')'。");
+        consume(ETokenType::RIGHT_PAREN, "for子句后期望 ')'。");
 
         // 循环体
         auto body = statement();
@@ -542,9 +561,11 @@ class Parser {
             body = std::make_unique<BlockStmt>(std::move(stmts));
         }
 
-        // 如果条件为空，用 true 代替（无限循环）
+        // 如果条件为空
         if (!condition) {
-            condition = std::make_unique<Literal>(Dynamic(true));
+            throw std::runtime_error("for循环条件不能为空。");
+            // 一个无限循环？这可能会导致问题。所以请填入一个bool。
+            //condition = std::make_unique<Literal>(Dynamic(true));
         }
 
         // 构建while循环
@@ -579,7 +600,7 @@ class Parser {
         return statements;
     }
 
-    // 同步
+    // 解析出错时将被调用,跳过损坏的token语句，直到遇到可以重新开始解析的位置
     void synchronize() {
         advance();
 

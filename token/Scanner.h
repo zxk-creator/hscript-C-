@@ -49,7 +49,7 @@ class Scanner {
     }
     // 判断字符是否为数字 0-9
     bool isDigit(char c) { return c >= '0' && c <= '9'; }
-    // 判断字符是否为字母（a-z, A-Z）或下划线
+    // 判断字符是否为字母a-z,A-Z或下划线
     bool isAlpha(char c) {
         return (c >= 'a' && c <= 'z') ||
                (c >= 'A' && c <= 'Z') ||
@@ -177,65 +177,80 @@ class Scanner {
 
 public:
     Scanner(std::string source) : source(source) {
-        keywords["&&"]       = ETokenType::AND;
-        keywords["和"]       = ETokenType::AND;
+        keywords["&&"]        = ETokenType::AND;
+        keywords["和"]        = ETokenType::AND;
 
-        keywords["class"]    = ETokenType::CLASS;
-        keywords["类"]       = ETokenType::CLASS;
+        keywords["class"]     = ETokenType::CLASS;
+        keywords["类"]        = ETokenType::CLASS;
 
-        keywords["else"]     = ETokenType::ELSE;
-        keywords["否则"]     = ETokenType::ELSE;
+        keywords["else"]      = ETokenType::ELSE;
+        keywords["否则"]      = ETokenType::ELSE;
 
-        keywords["false"]    = ETokenType::FALSE;
-        keywords["假"]       = ETokenType::FALSE;
+        keywords["false"]     = ETokenType::FALSE;
+        keywords["假"]        = ETokenType::FALSE;
 
-        keywords["for"]      = ETokenType::FOR;
-        keywords["循环"]     = ETokenType::FOR;
+        keywords["for"]       = ETokenType::FOR;
+        keywords["循环"]      = ETokenType::FOR;
 
-        keywords["function"] = ETokenType::FUNCTION;
-        keywords["函数"]     = ETokenType::FUNCTION;
+        keywords["function"]  = ETokenType::FUNCTION;
+        keywords["函数"]      = ETokenType::FUNCTION;
 
-        keywords["if"]       = ETokenType::IF;
-        keywords["如果"]     = ETokenType::IF;
+        keywords["if"]        = ETokenType::IF;
+        keywords["如果"]      = ETokenType::IF;
 
-        keywords["null"]     = ETokenType::NIL;
-        keywords["空"]       = ETokenType::NIL;
+        keywords["null"]      = ETokenType::NIL;
+        keywords["空"]        = ETokenType::NIL;
 
-        keywords["||"]       = ETokenType::OR;
-        keywords["或"]       = ETokenType::OR;
+        keywords["||"]        = ETokenType::OR;
+        keywords["或"]        = ETokenType::OR;
 
-        keywords["return"]   = ETokenType::RETURN;
-        keywords["返回"]     = ETokenType::RETURN;
+        keywords["return"]    = ETokenType::RETURN;
+        keywords["返回"]      = ETokenType::RETURN;
 
-        keywords["super"]    = ETokenType::SUPER;
-        keywords["父类"]     = ETokenType::SUPER;
+        keywords["super"]     = ETokenType::SUPER;
+        keywords["父类"]      = ETokenType::SUPER;
 
-        keywords["this"]     = ETokenType::THIS;
-        keywords["自己"]     = ETokenType::THIS;
+        keywords["this"]      = ETokenType::THIS;
+        keywords["自己"]      = ETokenType::THIS;
 
-        keywords["true"]     = ETokenType::TRUE;
-        keywords["真"]       = ETokenType::TRUE;
+        keywords["true"]      = ETokenType::TRUE;
+        keywords["真"]        = ETokenType::TRUE;
 
-        keywords["var"]      = ETokenType::VAR;
-        keywords["变量"]     = ETokenType::VAR;
+        keywords["var"]       = ETokenType::VAR;
+        keywords["变量"]      = ETokenType::VAR;
 
-        keywords["while"]    = ETokenType::WHILE;
-        keywords["当"]       = ETokenType::WHILE;
+        keywords["while"]     = ETokenType::WHILE;
+        keywords["当"]        = ETokenType::WHILE;
 
-        keywords["extends"]  = ETokenType::EXTENDS;
-        keywords["继承"]     = ETokenType::EXTENDS;
+        keywords["extends"]   = ETokenType::EXTENDS;
+        keywords["继承"]      = ETokenType::EXTENDS;
 
-        keywords["new"]      = ETokenType::NEW;
+        keywords["new"]       = ETokenType::NEW;
+        keywords["新的"]      = ETokenType::NEW;
 
-        keywords["public"]   = ETokenType::PUBLIC;
-        keywords["private"]  = ETokenType::PRIVATE;
+        keywords["public"]    = ETokenType::PUBLIC;
+        keywords["公开"]      = ETokenType::PUBLIC;
+
+        keywords["private"]   = ETokenType::PRIVATE;
+        keywords["私有"]      = ETokenType::PRIVATE;
+
         keywords["protected"] = ETokenType::PROTECTED;
+        keywords["受保护"]    = ETokenType::PROTECTED;
 
-        keywords["override"] = ETokenType::OVERRIDE;
-        keywords["final"]    = ETokenType::FINAL;
-        keywords["inline"]   = ETokenType::INLINE;
-        keywords["macro"]    = ETokenType::MACRO;
-        keywords["static"]   = ETokenType::STATIC;
+        keywords["override"]  = ETokenType::OVERRIDE;
+        keywords["重写"]      = ETokenType::OVERRIDE;
+
+        keywords["final"]     = ETokenType::FINAL;
+        keywords["最终"]      = ETokenType::FINAL;
+
+        keywords["inline"]    = ETokenType::INLINE;
+        keywords["内联"]      = ETokenType::INLINE;
+
+        keywords["macro"]     = ETokenType::MACRO;
+        keywords["宏"]        = ETokenType::MACRO;
+
+        keywords["static"]    = ETokenType::STATIC;
+        keywords["静态"]      = ETokenType::STATIC;
     }
 
     std::vector<Token> scanTokens() {
@@ -244,7 +259,7 @@ public:
             scanToken();
         }
 
-        // 结束了，加个文件结束标识
+        // 结束了，加个文件结束标识，多个F是为了防止与C++关键字冲突
         tokens.push_back(Token(ETokenType::EOFF, "", "", line));
         // 返回扫描好的token列表
         return tokens;

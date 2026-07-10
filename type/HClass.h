@@ -11,6 +11,13 @@
 class Environment;
 class FunctionStmt;
 class Dynamic;
+class Expr;
+
+// 字段声明信息
+struct FieldDecl {
+    std::string name;
+    Expr* initializer;
+};
 
 /**
  * 对象的类，相当于内存分配规则。C++父类要想被脚本类继承则需要继承自这个类
@@ -31,6 +38,9 @@ public:
 
     HClass(std::string name, std::shared_ptr<HClass> superclass)
         : name(std::move(name)), superclass(std::move(superclass)) {}
+
+    // 字段声明列表（用于在实例化时创建字段并赋初值）
+    std::vector<FieldDecl> fieldDecls;
 
     // 查找要调用的方法，包括脚本方法和C++方法
     std::pair<const FunctionStmt*,FunctionType> findMethod(const std::string& name) {
@@ -73,17 +83,22 @@ public:
     }
 
     // 子类请重写这个，这样通过反射获取到属性时才能正确返回
+    // 会沿 superclass 链向上递归查找
     virtual Dynamic getField(std::string fieldName)
     {
+        if (superclass) return superclass->getField(fieldName);
         throw std::runtime_error("没有找到字段" + fieldName + "!");
     }
     // 子类请重写这个，这样通过反射设置属性时才能正确设置
+    // 会沿 superclass 链向上递归查找
     virtual void setField(std::string fieldName, Dynamic value)
     {
+        if (superclass) return superclass->setField(fieldName, value);
         throw std::runtime_error("没有找到字段" + fieldName + "!");
     }
     virtual bool hasField(std::string fieldName)
     {
+        if (superclass) return superclass->hasField(fieldName);
         return false;
     }
 };

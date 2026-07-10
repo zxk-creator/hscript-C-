@@ -21,7 +21,7 @@ class Dynamic;
 using NullType = std::monostate;
 using ArrayType = std::vector<Dynamic>;
 using ObjectType = std::shared_ptr<HObject>;
-// C++原生函数
+// C++原生函数对象
 using FunctionType = std::function<Dynamic(const std::vector<Dynamic>&)>;
 
 using DynamicValue = std::variant<
@@ -47,7 +47,7 @@ class Dynamic
 {
     DynamicValue _value;
 
-    // 将 Dynamic 转换为字符串的辅助函数
+    // 将Dynamic转换为字符串的辅助函数
     static String valueToString(const DynamicValue& val) {
         return std::visit(overloaded{
             [](NullType) -> String { return "null"; },
@@ -76,7 +76,6 @@ class Dynamic
     }
 
 public:
-    // ============ 构造函数 ============
     Dynamic() : _value(NullType{}) {}
 
     // 数值构造
@@ -89,7 +88,7 @@ public:
     // 布尔构造
     Dynamic(bool v) : _value(v) {}
 
-    // 字符串构造（支持移动语义）
+    // 字符串构造
     Dynamic(const char* v) : _value(String(v)) {}
     Dynamic(String v) : _value(std::move(v)) {}
 
@@ -106,11 +105,10 @@ public:
     // nullptr 构造
     Dynamic(std::nullptr_t) : _value(NullType{}) {}
 
-    // 拷贝/移动构造（默认即可）
+    // 拷贝/移动构造
     Dynamic(const Dynamic&) = default;
     Dynamic(Dynamic&&) noexcept = default;
 
-    // ============ 赋值运算符 ============
     Dynamic& operator=(const Dynamic&) = default;
     Dynamic& operator=(Dynamic&&) noexcept = default;
 
@@ -123,7 +121,7 @@ public:
     Dynamic& operator=(ObjectType v) { _value = std::move(v); return *this; }
     Dynamic& operator=(std::nullptr_t) { _value = NullType{}; return *this; }
 
-    // ============ 类型判断 ============
+    // 类型判断
     bool isNull() const { return std::holds_alternative<NullType>(_value); }
     bool isBool() const { return std::holds_alternative<bool>(_value); }
     bool isNumber() const { return std::holds_alternative<double>(_value); }
@@ -132,31 +130,7 @@ public:
     bool isObject() const { return std::holds_alternative<ObjectType>(_value); }
     bool isFunction() const { return std::holds_alternative<FunctionType>(_value); }
 
-    // ============ 值获取 ============
-    /**
-    // 安全获取（返回 optional）
-    std::optional<double> getNumber() const {
-        if (auto* v = std::get_if<double>(&_value)) return *v;
-        return std::nullopt;
-    }
-
-    std::optional<int> getInt() const {
-        if (auto* v = std::get_if<double>(&_value)) return static_cast<int>(*v);
-        return std::nullopt;
-    }
-
-    std::optional<bool> getBool() const {
-        if (auto* v = std::get_if<bool>(&_value)) return *v;
-        return std::nullopt;
-    }
-
-    std::optional<String> getString() const {
-        if (auto* v = std::get_if<String>(&_value)) return *v;
-        return std::nullopt;
-    }
-    **/
-
-    // 不安全获取（若数值类型不匹配则会抛异常！）
+    // 不安全获取,若数值类型不匹配则会抛异常！
     double asNumber() const { return std::get<double>(_value); }
     bool asBool() const { return std::get<bool>(_value); }
     const String& asString() const { return std::get<String>(_value); }
@@ -164,7 +138,7 @@ public:
     ObjectType asObject() const { return std::get<ObjectType>(_value); }
     const FunctionType& asFunction() const { return std::get<FunctionType>(_value); }
 
-    // ============ 数组操作 ============
+    // 数组操作
     Dynamic& operator[](size_t index) {
         auto& arr = std::get<ArrayType>(_value);
         if (index >= arr.size()) {
@@ -211,18 +185,17 @@ public:
     auto begin() const { return std::get<ArrayType>(_value).begin(); }
     auto end() const { return std::get<ArrayType>(_value).end(); }
 
-    // ============ 函数调用 ============
+    // 函数调用
     Dynamic call(const std::vector<Dynamic>& args = {}) const {
         const auto& func = std::get<FunctionType>(_value);
         return func(args);
     }
 
-    // ============ 类型转换 ============
     String toString() const {
         return valueToString(_value);
     }
 
-    // 转换为布尔值（用于条件判断）
+    // 转换为布尔值
     operator bool() const {
         return std::visit(overloaded{
             [](NullType) { return false; },
@@ -301,13 +274,17 @@ public:
             [](double a, const String& b) -> Dynamic { return Dynamic(valueToString(DynamicValue(a)) + b); },
             // 字符串 + 数字
             [](const String& a, double b) -> Dynamic { return Dynamic(a + valueToString(DynamicValue(b))); },
-            // 其他组合不支持
-            [](auto, auto) -> Dynamic { throw std::runtime_error("不支持的加法操作"); }
+            // 其他不支持
+            [](auto, auto) -> Dynamic { throw std::runtime_error("不支持的加法操作！"); }
         }, _value, other._value);
     }
 
     Dynamic operator-(const Dynamic& other) const {
+        if (!isNumber() || !other.isNumber()) {
+            throw std::runtime_error("减法运算要求两个操作数都是数字！");
+        }
         return Dynamic(asNumber() - other.asNumber());
+
     }
 
     Dynamic operator-() const {

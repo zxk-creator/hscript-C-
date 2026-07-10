@@ -39,8 +39,8 @@ public:
 
     void setField(std::string fieldName, Dynamic value) override
     {
-        if (fieldName == "a") a = value.asNumber();
-        else if (fieldName == "b") b = value.asNumber();
+        if (fieldName == "a") { a = value.asNumber(); return; }
+        if (fieldName == "b") { b = value.asNumber(); return; }
 
         HClass::setField(fieldName, value);
     }

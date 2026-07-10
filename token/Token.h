@@ -26,6 +26,7 @@ enum class ETokenType {
     EOFF
 };
 
+// AST中每个节点必定包含的东西
 class Token {
 public:
     ETokenType type;

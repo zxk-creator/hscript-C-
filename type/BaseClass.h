@@ -29,7 +29,7 @@ public:
     }
 
     Player() {
-    // 注册 takeDamage：捕获 this，包装成统一格式
+    // 重点！必须捕获this调用真实的方法！
     registerMethod("takeDamage", [this](std::vector<std::any> args) -> std::any {
     int dmg = std::any_cast<int>(args[0]);
     this->takeDamage(dmg);

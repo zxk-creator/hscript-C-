@@ -372,10 +372,13 @@ public:
     Token name;
     std::unique_ptr<Expr> superclass;  // Variable 或 nullptr
     std::vector<std::unique_ptr<FunctionStmt>> methods;
+    // 字段声明: {字段名, 初始化表达式}，无初始化式时 second == nullptr
+    std::vector<std::pair<Token, std::unique_ptr<Expr>>> fields;
 
     ClassStmt(Token name, std::unique_ptr<Expr> superclass,
-              std::vector<std::unique_ptr<FunctionStmt>> methods)
-        : name(name), superclass(std::move(superclass)), methods(std::move(methods)) {}
+              std::vector<std::unique_ptr<FunctionStmt>> methods,
+              std::vector<std::pair<Token, std::unique_ptr<Expr>>> fields)
+        : name(name), superclass(std::move(superclass)), methods(std::move(methods)), fields(std::move(fields)) {}
 
     Dynamic accept(StmtVisitor& visitor) const override {
         return visitor.visitClassStmt(*this);
