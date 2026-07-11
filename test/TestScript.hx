@@ -1,10 +1,10 @@
 class TestCls
 {
     public var a:Int = 1;
-    public var b:Float = 2;
-    public var c:String = "你好，脚本！";
+    public var b = 2.9;
+    public var c:String = "Hello, World";
 
-    public function new(a:Int,b:Float,c:String)
+    public function new(a:Int, b:Float, c:String)
     {
         this.a = a;
         this.b = b;
@@ -13,22 +13,10 @@ class TestCls
 
     public function printLog()
     {
-        trace(a.toString() + b.toString() + "！");
+        trace(a.toString() + ", " + b.toString() + ", " + "!");
         trace(this.c);
     }
 }
 
-var c = new TestCls(1,2,"Hello!");
+var c = new TestCls(15, 30.75, "Test completed");
 c.printLog();
-
-var beforeTime = now();
-
-var loopTime = 0;
-while(loopTime <= 100000)
-{
-    loopTime = loopTime + 1;
-}
-
-var afterTime = now();
-
-trace("执行100000次循环，耗时" + (afterTime - beforeTime) + "秒");
